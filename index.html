@@ -1,0 +1,99 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Pure-Static P2P Chat</title>
+    <style>
+      body { font: 14px system-ui, sans-serif; max-width: 720px; margin: 2rem auto; }
+      textarea { width: 100%; height: 120px; }
+      #chat { border: 1px solid #ccc; padding: .5rem; height: 200px; overflow: auto; }
+      .row { display: flex; gap: .5rem; margin: .5rem 0; }
+      button { padding: .4rem .8rem; }
+    </style>
+  </head>
+  <body>
+    <h2>Pure-Static P2P Chat</h2>
+
+    <div class="row">
+      <button id="makeOffer">Create offer</button>
+      <button id="acceptOffer">Accept offer</button>
+    </div>
+
+    <p><strong>Local description</strong> (copy this to the other side):</p>
+    <textarea id="local"></textarea>
+
+    <p><strong>Remote description</strong> (paste from the other side, then click “Set remote”):</p>
+    <textarea id="remote"></textarea>
+    <div class="row"><button id="setRemote">Set remote</button></div>
+
+    <div id="chat"></div>
+    <div class="row">
+      <input id="msg" placeholder="Type a message..." style="flex:1" />
+      <button id="send">Send</button>
+    </div>
+
+    <script>
+      const pc = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      });
+
+      let channel = null;
+      const chat = document.getElementById('chat');
+      const log = (t) => { const p = document.createElement('div'); p.textContent = t; chat.appendChild(p); chat.scrollTop = chat.scrollHeight; };
+
+      // Outgoing messages
+      document.getElementById('send').onclick = () => {
+        const m = document.getElementById('msg').value;
+        if (channel && channel.readyState === 'open' && m.trim()) {
+          channel.send(m);
+          log('You: ' + m);
+          document.getElementById('msg').value = '';
+        }
+      };
+
+      // ICE gathering -> update local description as ICE trickles in
+      pc.onicecandidate = () => {
+        if (pc.localDescription) {
+          document.getElementById('local').value = JSON.stringify(pc.localDescription);
+        }
+      };
+
+      // Incoming DataChannel (on the answerer side)
+      pc.ondatachannel = (e) => {
+        channel = e.channel;
+        channel.onopen = () => log('DataChannel open');
+        channel.onmessage = (e) => log('Peer: ' + e.data);
+      };
+
+      // Caller: create offer and DataChannel
+      document.getElementById('makeOffer').onclick = async () => {
+        channel = pc.createDataChannel('chat');
+        channel.onopen = () => log('DataChannel open');
+        channel.onmessage = (e) => log('Peer: ' + e.data);
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        document.getElementById('local').value = JSON.stringify(pc.localDescription);
+      };
+
+      // Callee: accept offer
+      document.getElementById('acceptOffer').onclick = async () => {
+        const remote = document.getElementById('remote').value;
+        if (!remote) return alert('Paste remote offer first');
+        const offer = JSON.parse(remote);
+        await pc.setRemoteDescription(offer);
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        document.getElementById('local').value = JSON.stringify(pc.localDescription);
+      };
+
+      // Both sides: set remote description when received
+      document.getElementById('setRemote').onclick = async () => {
+        const remote = document.getElementById('remote').value;
+        if (!remote) return alert('Paste remote SDP first');
+        const desc = JSON.parse(remote);
+        await pc.setRemoteDescription(desc);
+      };
+    </script>
+  </body>
+</html>
