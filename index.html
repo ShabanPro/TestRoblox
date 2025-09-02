@@ -1,83 +1,414 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
-<title>Easy P2P Chat</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>P2P Chat — GitHub Pages, No Backend</title>
 <style>
-body { font-family: sans-serif; max-width: 600px; margin: 2rem auto; }
-#chat { border: 1px solid #ccc; height: 200px; overflow-y: auto; padding: .5rem; }
-input, button { padding: .4rem; }
+  :root{
+    --bg:#0b0f14;
+    --card:#121822;
+    --muted:#8ca3b0;
+    --accent:#60a5fa;
+    --accent-2:#34d399;
+    --danger:#ef4444;
+    --text:#e6edf3;
+    --bubble-me:#2563eb20;
+    --bubble-peer:#10b98120;
+    --radius:14px;
+    --shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:radial-gradient(1200px 800px at 10% -10%, #1b2640 0%, #0b0f14 60%), var(--bg);
+    color:var(--text); font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;
+    display:flex; align-items:center; justify-content:center; padding:24px;
+  }
+  .app{
+    width:min(960px, 100%); display:grid; grid-template-columns: 360px 1fr; gap:20px;
+  }
+  @media (max-width: 880px){ .app{grid-template-columns:1fr} }
+  .card{
+    background:linear-gradient(180deg, #15203480, #0f1524cc);
+    border:1px solid #203047; border-radius:20px; box-shadow:var(--shadow);
+    overflow:hidden;
+  }
+  .pane{ padding:18px 18px 16px 18px }
+  .title{
+    display:flex; align-items:center; gap:10px; margin:0 0 12px 0; font-weight:700;
+  }
+  .title .dot{ width:10px; height:10px; border-radius:50%; background:var(--accent); box-shadow:0 0 14px var(--accent)}
+  .muted{ color:var(--muted) }
+  .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap }
+  .row + .row{ margin-top:10px }
+  .sep{ height:1px; background:#1f2a3a; margin:14px -18px }
+  .btn{
+    appearance:none; border:1px solid #2a3a52; background:#121a2a; color:var(--text);
+    padding:10px 12px; border-radius:12px; cursor:pointer; transition:.2s;
+  }
+  .btn:hover{ border-color:#38527a; background:#0f1624 }
+  .btn.primary{ border-color:#2b5fb2; background:linear-gradient(180deg,#1b3b70,#13294d); }
+  .btn.success{ border-color:#1f8f6b; background:linear-gradient(180deg,#176047,#0f3f31); }
+  .btn.warn{ border-color:#8b2b2b; background:linear-gradient(180deg,#712222,#4b1515); }
+  .btn:disabled{ opacity:.6; cursor:not-allowed }
+
+  .switch{ display:inline-flex; gap:10px; align-items:center; }
+  .switch input{ width:36px; height:22px; accent-color:var(--accent) }
+
+  textarea, input[type="text"]{
+    width:100%; background:#0e1727; border:1px solid #26344a; color:var(--text);
+    border-radius:12px; padding:10px 12px; outline:none; transition:.2s;
+  }
+  textarea{ min-height:120px; resize:vertical }
+  textarea[readonly]{ opacity:.9 }
+
+  .status{
+    display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:12px; background:#0e1727; border:1px solid #26344a;
+  }
+  .badge{ font-size:12px; padding:3px 8px; border-radius:999px; border:1px solid #2a3a52; background:#121a2a }
+  .badge.ok{ border-color:#1f8f6b; color:#b8f3df; background:#0c2d24 }
+  .badge.wait{ border-color:#2b5fb2; color:#c8dfff; background:#0d2444 }
+  .badge.err{ border-color:#8b2b2b; color:#ffd1d1; background:#3a1212 }
+
+  .chat{
+    height:440px; overflow:auto; padding:16px; background:
+      radial-gradient(800px 500px at 120% -10%, #0b4 0%, transparent 60%),
+      radial-gradient(800px 500px at -20% 110%, #04b 0%, transparent 60%),
+      #0b111a;
+    border-top:1px solid #203047; border-bottom:1px solid #203047;
+  }
+  .bubble{
+    max-width:75%; margin:6px 0; padding:10px 12px; border-radius:16px;
+    border:1px solid #22354a; box-shadow:0 4px 16px rgba(0,0,0,.25);
+  }
+  .me{ margin-left:auto; background:var(--bubble-me) }
+  .peer{ margin-right:auto; background:var(--bubble-peer) }
+  .small{ font-size:12px; color:#a7b4c4 }
+  .inputbar{ display:flex; gap:10px; padding:12px; background:#0c1422; border-top:1px solid #203047 }
+  .inputbar input{
+    flex:1; height:44px; padding:10px 12px; border-radius:12px; border:1px solid #26344a; background:#0e1727; color:var(--text);
+  }
+
+  .hint{
+    padding:10px 12px; border-left:3px solid #2b5fb2; background:#0e1727; border-radius:10px; color:#cbd5e1
+  }
+  .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:10px }
+  @media (max-width: 560px){ .grid-2{ grid-template-columns:1fr } }
 </style>
 </head>
 <body>
-<h2>Easy P2P Chat</h2>
-<p>Room: <input id="room" placeholder="room name"> <button id="join">Join</button></p>
-<div id="chat"></div>
-<p><input id="msg" placeholder="Type message..." style="width:80%"> <button id="send">Send</button></p>
+  <div class="app">
 
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <!-- Left: Connection pane -->
+    <div class="card">
+      <div class="pane">
+        <h3 class="title"><span class="dot"></span>Peer-to-Peer Connection</h3>
+        <div class="status" id="statusBar">
+          <span id="statusText" class="muted">Idle</span>
+          <span id="badge" class="badge">—</span>
+          <span class="muted" id="roleText"></span>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="row">
+          <div class="switch">
+            <input type="checkbox" id="useStun" checked />
+            <label for="useStun" class="muted">Use public STUN (better connectivity)</label>
+          </div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="hint small" style="margin-bottom:10px">
+          Steps: A clicks “Create Offer” and copies it to B. B pastes it and clicks “Create Answer”, then sends their answer back to A. A pastes B’s answer and clicks “Set Remote Answer”. Chat opens when connected.
+        </div>
+
+        <div class="row">
+          <button id="btnOffer" class="btn primary">Create Offer</button>
+          <button id="btnCopyOffer" class="btn" disabled>Copy Offer</button>
+          <button id="btnPasteOffer" class="btn">Paste Remote Offer</button>
+        </div>
+        <div class="grid-2">
+          <div>
+            <label class="small muted">Your local description</label>
+            <textarea id="localDesc" readonly></textarea>
+          </div>
+          <div>
+            <label class="small muted">Remote description (paste here)</label>
+            <textarea id="remoteDesc" placeholder="Paste the other side’s blob here"></textarea>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <button id="btnAnswer" class="btn success">Create Answer</button>
+          <button id="btnCopyAnswer" class="btn" disabled>Copy Answer</button>
+          <button id="btnSetRemoteAnswer" class="btn">Set Remote Answer</button>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="row">
+          <button id="btnReset" class="btn warn">Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Chat pane -->
+    <div class="card">
+      <div class="pane" style="padding-bottom:0">
+        <h3 class="title"><span class="dot" style="background:var(--accent-2); box-shadow:0 0 14px var(--accent-2)"></span>Chat</h3>
+      </div>
+      <div class="chat" id="chatLog" aria-live="polite"></div>
+      <div class="inputbar">
+        <input id="msgInput" type="text" placeholder="Type a message… (Enter to send)" disabled />
+        <button id="btnSend" class="btn" disabled>Send</button>
+      </div>
+    </div>
+
+  </div>
+
 <script>
-const firebaseConfig = {
-  apiKey: "YOUR_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT.firebaseio.com",
-  projectId: "YOUR_PROJECT",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_ID",
-  appId: "YOUR_APP_ID"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+(() => {
+  let pc = null;
+  let channel = null;
+  let role = null; // "offerer" or "answerer"
 
-let pc, channel;
-const chat = document.getElementById('chat');
-const log = m => { chat.innerHTML += `<div>${m}</div>`; chat.scrollTop = chat.scrollHeight; };
-
-document.getElementById('join').onclick = async () => {
-  const room = document.getElementById('room').value;
-  if (!room) return alert("Enter room name");
-  pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-  channel = pc.createDataChannel('chat');
-  channel.onmessage = e => log("Peer: " + e.data);
-  channel.onopen = () => log("Connected!");
-
-  pc.onicecandidate = e => {
-    if (e.candidate) db.ref(room + "/candidates/" + Date.now()).set(e.candidate.toJSON());
+  const els = {
+    useStun: document.getElementById('useStun'),
+    statusBar: document.getElementById('statusBar'),
+    statusText: document.getElementById('statusText'),
+    badge: document.getElementById('badge'),
+    roleText: document.getElementById('roleText'),
+    localDesc: document.getElementById('localDesc'),
+    remoteDesc: document.getElementById('remoteDesc'),
+    btnOffer: document.getElementById('btnOffer'),
+    btnCopyOffer: document.getElementById('btnCopyOffer'),
+    btnPasteOffer: document.getElementById('btnPasteOffer'),
+    btnAnswer: document.getElementById('btnAnswer'),
+    btnCopyAnswer: document.getElementById('btnCopyAnswer'),
+    btnSetRemoteAnswer: document.getElementById('btnSetRemoteAnswer'),
+    btnReset: document.getElementById('btnReset'),
+    chatLog: document.getElementById('chatLog'),
+    msgInput: document.getElementById('msgInput'),
+    btnSend: document.getElementById('btnSend'),
   };
 
-  const offer = await pc.createOffer();
-  await pc.setLocalDescription(offer);
-  db.ref(room).set({ offer });
+  function setStatus(text, state="wait"){
+    els.statusText.textContent = text;
+    els.badge.className = "badge " + (state === "ok" ? "ok" : state === "err" ? "err" : "wait");
+    els.badge.textContent = state === "ok" ? "Connected" : state === "err" ? "Error" : "Waiting";
+  }
 
-  db.ref(room + "/answer").on("value", async snap => {
-    const ans = snap.val();
-    if (ans && !pc.currentRemoteDescription) {
-      await pc.setRemoteDescription(new RTCSessionDescription(ans));
+  function setRole(r){
+    role = r;
+    els.roleText.textContent = r ? `· Role: ${r}` : "";
+  }
+
+  function logBubble(text, who="peer"){
+    const div = document.createElement('div');
+    div.className = "bubble " + (who === "me" ? "me" : "peer");
+    div.textContent = text;
+    els.chatLog.appendChild(div);
+    els.chatLog.scrollTop = els.chatLog.scrollHeight;
+  }
+
+  function enableChat(enabled){
+    els.msgInput.disabled = !enabled;
+    els.btnSend.disabled = !enabled;
+  }
+
+  function resetUI(){
+    els.localDesc.value = "";
+    els.remoteDesc.value = "";
+    setStatus("Idle", "wait");
+    setRole(null);
+    enableChat(false);
+    els.btnCopyOffer.disabled = true;
+    els.btnCopyAnswer.disabled = true;
+  }
+
+  function copy(text){
+    return navigator.clipboard.writeText(text).catch(() => {
+      // Fallback if permissions denied
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select(); document.execCommand('copy');
+      document.body.removeChild(ta);
+    });
+  }
+
+  async function waitIceComplete(pc){
+    if (pc.iceGatheringState === "complete") return;
+    await new Promise(resolve => {
+      function check(){
+        if (pc.iceGatheringState === "complete") {
+          pc.removeEventListener('icegatheringstatechange', check);
+          resolve();
+        }
+      }
+      pc.addEventListener('icegatheringstatechange', check);
+    });
+  }
+
+  function createPeer(){
+    const cfg = els.useStun.checked ? { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } : {};
+    const p = new RTCPeerConnection(cfg);
+
+    p.addEventListener('connectionstatechange', () => {
+      const s = p.connectionState;
+      if (s === "connected") { setStatus("Peers connected", "ok"); enableChat(true); }
+      else if (s === "failed" || s === "disconnected") { setStatus("Connection lost", "err"); enableChat(false); }
+      else if (s === "connecting") { setStatus("Connecting…", "wait"); enableChat(false); }
+    });
+
+    p.addEventListener('iceconnectionstatechange', () => {
+      // Optional: reflect more granular ICE state if desired
+    });
+
+    p.addEventListener('datachannel', (e) => {
+      channel = e.channel;
+      wireChannel(channel);
+    });
+
+    return p;
+  }
+
+  function wireChannel(ch){
+    ch.addEventListener('open', () => {
+      setStatus("Channel open — start chatting", "ok");
+      enableChat(true);
+      logBubble("Connected! 🎉", "peer");
+    });
+    ch.addEventListener('message', (e) => {
+      logBubble(e.data, "peer");
+    });
+    ch.addEventListener('close', () => {
+      setStatus("Channel closed", "err");
+      enableChat(false);
+    });
+  }
+
+  // Handlers
+  els.btnOffer.addEventListener('click', async () => {
+    try{
+      resetPeer();
+      pc = createPeer();
+      setRole("offerer");
+
+      channel = pc.createDataChannel('chat', { ordered: true });
+      wireChannel(channel);
+
+      setStatus("Creating offer…", "wait");
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      await waitIceComplete(pc);
+
+      els.localDesc.value = JSON.stringify(pc.localDescription);
+      els.btnCopyOffer.disabled = false;
+      setStatus("Offer ready — copy to peer", "wait");
+    }catch(err){
+      console.error(err);
+      setStatus("Failed to create offer", "err");
     }
   });
 
-  db.ref(room + "/candidates").on("child_added", async snap => {
-    const cand = snap.val();
-    if (cand) await pc.addIceCandidate(new RTCIceCandidate(cand));
+  els.btnCopyOffer.addEventListener('click', async () => {
+    if (!els.localDesc.value) return;
+    await copy(els.localDesc.value);
+    setStatus("Offer copied. Send it to your peer.", "wait");
   });
 
-  // Listen for incoming data channel (if you join second)
-  pc.ondatachannel = e => {
-    channel = e.channel;
-    channel.onmessage = ev => log("Peer: " + ev.data);
-    channel.onopen = () => log("Connected!");
-  };
-};
+  els.btnPasteOffer.addEventListener('click', async () => {
+    try{
+      const text = await navigator.clipboard.readText().catch(() => "");
+      if (text) {
+        els.remoteDesc.value = text;
+      } else {
+        // no permission or empty: do nothing; user can paste manually
+      }
+    }catch{}
+  });
 
-document.getElementById('send').onclick = () => {
-  const m = document.getElementById('msg').value;
-  if (channel && channel.readyState === 'open') {
-    channel.send(m);
-    log("You: " + m);
-    document.getElementById('msg').value = '';
+  els.btnAnswer.addEventListener('click', async () => {
+    try{
+      if (!els.remoteDesc.value.trim()) return alert("Paste the remote offer first.");
+      resetPeer();
+      pc = createPeer();
+      setRole("answerer");
+
+      const remote = JSON.parse(els.remoteDesc.value.trim());
+      setStatus("Setting remote offer…", "wait");
+      await pc.setRemoteDescription(remote);
+
+      setStatus("Creating answer…", "wait");
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      await waitIceComplete(pc);
+
+      els.localDesc.value = JSON.stringify(pc.localDescription);
+      els.btnCopyAnswer.disabled = false;
+      setStatus("Answer ready — copy to peer", "wait");
+    }catch(err){
+      console.error(err);
+      setStatus("Failed to create answer", "err");
+    }
+  });
+
+  els.btnCopyAnswer.addEventListener('click', async () => {
+    if (!els.localDesc.value) return;
+    await copy(els.localDesc.value);
+    setStatus("Answer copied. Send it back to the offerer.", "wait");
+  });
+
+  els.btnSetRemoteAnswer.addEventListener('click', async () => {
+    try{
+      if (!els.remoteDesc.value.trim()) return alert("Paste the remote answer first.");
+      const answer = JSON.parse(els.remoteDesc.value.trim());
+      setStatus("Applying remote answer…", "wait");
+      await pc.setRemoteDescription(answer);
+      setStatus("Negotiation complete. Connecting…", "wait");
+    }catch(err){
+      console.error(err);
+      setStatus("Failed to set remote answer", "err");
+    }
+  });
+
+  function resetPeer(){
+    if (channel){ try{ channel.close(); }catch{} }
+    if (pc){ try{ pc.close(); }catch{} }
+    channel = null;
+    pc = null;
   }
-};
+
+  els.btnReset.addEventListener('click', () => {
+    resetPeer();
+    resetUI();
+    logBubble("Reset. Start a new negotiation.", "peer");
+  });
+
+  els.btnSend.addEventListener('click', () => {
+    const v = els.msgInput.value;
+    if (!v.trim() || !channel || channel.readyState !== "open") return;
+    channel.send(v);
+    logBubble(v, "me");
+    els.msgInput.value = "";
+  });
+
+  els.msgInput.addEventListener('keydown', (e) => {
+    if (e.key === "Enter" && !e.shiftKey){
+      e.preventDefault();
+      els.btnSend.click();
+    }
+  });
+
+  // Initial UI
+  resetUI();
+  logBubble("Welcome! Use the left panel to connect.", "peer");
+
+})();
 </script>
 </body>
 </html>
